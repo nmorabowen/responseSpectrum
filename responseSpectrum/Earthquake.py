@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.integrate import cumulative_trapezoid
+import os
 
 
 class Earthquake:
@@ -72,7 +73,7 @@ class Earthquake:
             'displacement_min_index': displacement_min_index
         }
         
-    def newmark_sdof(self, T, zeta=0.05, m=1.0, beta=0.25, gamma=0.5, plot=False):
+    def newmark_sdof(self, T, zeta=0.05, m=1.0, beta=0.25, gamma=0.5, plot=False, save_svg=False, filename=None):
         """
         Compute the displacement, velocity, and acceleration responses of an SDOF oscillator 
         using the Newmark method.
@@ -151,7 +152,7 @@ class Earthquake:
             udot[i + 1] = udot[i] + dt * ((1 - gamma) * uacc[i] + gamma * uacc[i + 1])
         
         if plot is True:
-            self._plot_sdof_response(u, udot, uacc, time)
+            self._plot_sdof_response(u, udot, uacc, time, T, save_svg=save_svg, filename=filename)
         
         results={'displacement': u, 
                  'velocity': udot, 
@@ -160,7 +161,7 @@ class Earthquake:
         
         return results
     
-    def compute_response_spectrum(self, T_range, zeta=0.05, m=1.0, beta=0.25, gamma=0.5, plot=False):
+    def compute_response_spectrum(self, T_range, zeta=0.05, m=1.0, beta=0.25, gamma=0.5, plot=False, save_svg=False, filename=None):
         """
         Compute the response spectrum for a range of periods T with unit scaling.
         
@@ -234,11 +235,11 @@ class Earthquake:
         
         # Optionally, plot the response spectra
         if plot is True:
-            self.plot_response_spectrum(results)
+            self.plot_response_spectrum(results, save_svg=save_svg, filename=filename)
         
         return results
 
-    def plot_response_spectrum(self, spectrum_results, ax=None, figsize=(5, 10), linewidth=0.75, linestyle='-'):
+    def plot_response_spectrum(self, spectrum_results, ax=None, figsize=(5, 10), linewidth=0.75, linestyle='-', save_svg=False, filename=None):
         """
         Plot the response spectrum using three subplots with correct unit labels.
         """
@@ -251,24 +252,24 @@ class Earthquake:
         
         ax[0].plot(spectrum_results['T'], spectrum_results['Sa'], 
                 label=f'Spectral Acceleration $S_a$ ({units["Sa"]})', 
-                color='r', linewidth=linewidth, linestyle=linestyle)
+                color='#000077', linewidth=linewidth, linestyle=linestyle)
         
         ax[1].plot(spectrum_results['T'], spectrum_results['Sv'], 
                 label=f'Spectral Velocity $S_v$ ({units["Sv"]})', 
-                color='b', linewidth=linewidth, linestyle=linestyle)
+                color='#000077', linewidth=linewidth, linestyle=linestyle)
         
         ax[2].plot(spectrum_results['T'], spectrum_results['Sd'], 
                 label=f'Spectral Displacement $S_d$ ({units["Sd"]})', 
-                color='g', linewidth=linewidth, linestyle=linestyle)
+                color='#000077', linewidth=linewidth, linestyle=linestyle)
         
         ax[0].set_ylabel(f'Acceleration ({units["Sa"]})')
         ax[1].set_ylabel(f'Velocity ({units["Sv"]})')
         ax[2].set_ylabel(f'Displacement ({units["Sd"]})')
         ax[2].set_xlabel(f'Period ({units["T"]})')
         
-        ax[0].set_title('Spectral Acceleration')
-        ax[1].set_title('Spectral Velocity')
-        ax[2].set_title('Spectral Displacement')
+        ax[0].set_title('Spectral Acceleration', fontsize=8)
+        ax[1].set_title('Spectral Velocity', fontsize=8)
+        ax[2].set_title('Spectral Displacement', fontsize=8)
         
         ax[-1].set_xlim(0, max(spectrum_results['T']))
 
@@ -282,11 +283,23 @@ class Earthquake:
             a.grid(True, linestyle='--', linewidth=0.5)
             a.tick_params(labelbottom=True)  # Ensure x-axis tick labels are shown for all subplots
             
+        
         plt.tight_layout()
         plt.show()
+
+        if save_svg:
+            if filename is None:
+                base = os.path.splitext(os.path.basename(self.filepath))[0] if self.filepath else "response_spectrum_plot"
+                filename = f"{base}_spectrum.svg"
+            fig.savefig(filename+'.svg', format='svg', bbox_inches='tight')
+            print(f"Plot saved as {filename}.svg")
+
+        fig.suptitle(f"Response Spectrum: {filename}", fontsize=11, fontweight=True)
+
         return ax
    
-    def _plot_sdof_response(self, u, udot, uacc, time, ax=None, figsize=(10,6), linewidth=0.75, linestyle='-', color=['k', 'b', 'r']):
+    def _plot_sdof_response(self, u, udot, uacc, time, T:float, ax=None, figsize=(10,6), linewidth=0.75, linestyle='-', color=['k', 'b', 'r'],
+                            save_svg=False, filename=None):
         """Plots SDOF responses (displacement, velocity, acceleration) with correct unit labels."""
         
         # Get unit labels
@@ -320,28 +333,39 @@ class Earthquake:
             ax[i].plot(time[max_idx], y_data[max_idx], 'ro', label=f'Máx: {y_data[max_idx]:.2f} {unit}')
             ax[i].plot(time[min_idx], y_data[min_idx], 'go', label=f'Mín: {y_data[min_idx]:.2f} {unit}')
             ax[i].set_ylabel(f'{title} ({unit})')
-            ax[i].set_title(f'{title} vs. Tiempo')
-            ax[i].legend()
+            ax[i].set_title(f'{title} vs. Tiempo', fontsize=10)
+            ax[i].legend(loc='upper right')
             ax[i].grid(True)
         
-        ax[-1].set_xlabel(f'Tiempo ({time_unit})')  # Set x-axis label for the last plot
+        metadata = f"Period: {T}"
+        fig.suptitle(f"SDOF Response \n{metadata}", fontsize=11, fontweight=True)
+
+        ax[-1].set_xlabel(f'Tiempo ({time_unit})', fontsize=10)  # Set x-axis label for the last plot
         plt.tight_layout()
         plt.show()
+
+        if save_svg:
+            if filename is None:
+                base = os.path.splitext(os.path.basename(self.filepath))[0] if self.filepath else "SDOF_plot"
+                filename = f"{base}_record.svg"
+            fig.savefig(filename+'.svg', format='svg', bbox_inches='tight')
+            print(f"Plot saved as {filename}.svg")
         
         return fig, ax
 
     def plot_earthquake_record(self, ax=None, figsize=(10, 6), linewidth=0.75, linestyle='-', 
-                               quantities=['acceleration', 'velocity', 'displacement'], color=['k', 'b', 'r']):
+                               quantities=['acceleration', 'velocity', 'displacement'], color=['k', 'b', 'r'],
+                               save_svg=False, filename=None):
         """Plots selected earthquake records with correct unit labels."""
         
         # Get unit factors and labels
         length_unit = self.units['length']['label']
         time_unit = self.units['time']['label']
-        accel_units = self.units['acceleration']['label']
+        accel_units = self.units['acceleration']['label'] or f'{length_unit}/{time_unit}²'
 
         # Define unit labels for each quantity
         unit_labels = {
-            'acceleration': accel_units['label'],
+            'acceleration': accel_units,
             'velocity': f'{length_unit}/{time_unit}',
             'displacement': f'{length_unit}'
         }
@@ -391,14 +415,23 @@ class Earthquake:
             ax[i].plot(time[max_idx], y_data[max_idx], 'ro', label=f'Máx: {y_data[max_idx]:.2f} {unit}')
             ax[i].plot(time[min_idx], y_data[min_idx], 'go', label=f'Mín: {y_data[min_idx]:.2f} {unit}')
             ax[i].set_ylabel(f'{title} ({unit})')
-            ax[i].set_title(f'{title} vs. Tiempo')
-            ax[i].legend()
+            ax[i].set_title(f'{title} vs. Tiempo', fontsize=10)
+            ax[i].legend(loc='upper right')
             ax[i].grid(True)
+
+        metadata = f"File: {os.path.basename(self.filepath)} — $d_t$ = {self.dt}s"
+        fig.suptitle(f"Registro Sísmico\n{metadata}", fontsize=11, fontweight=True)
 
         ax[-1].set_xlabel(f'Tiempo ({time_unit})')  # Set x-axis label for the last plot
         plt.tight_layout()
         plt.show()
 
+        if save_svg:
+            if filename is None:
+                base = os.path.splitext(os.path.basename(self.filepath))[0] if self.filepath else "earthquake_plot"
+                filename = f"{base}_record.svg"
+            fig.savefig(filename+'.svg', format='svg', bbox_inches='tight')
+            print(f"Plot saved as {filename}.svg")
+
         return fig, ax
     
-
