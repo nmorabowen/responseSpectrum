@@ -5,6 +5,8 @@ Summary: Tools for handling earthquake response spectra
 Author-email: Nicolas Mora Bowen <nmorabowen@gmail.com>
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
 
 # Create README.md content for the package
 readme_content = """\
